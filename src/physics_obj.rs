@@ -1,13 +1,8 @@
-use macroquad::prelude::*;
-
-pub const GRAVITY: Vec2 = Vec2::new(0.0, 1000.0);
-pub const SUBSTEP: u32 = 10;
-pub const PHYSICS_SPEED: u32 = 1;
-
 pub mod physics_obj {
+
     use macroquad::prelude::*;
 
-    use super::{GRAVITY, PHYSICS_SPEED, SUBSTEP};
+    use crate::game_engine::GRAVITY;
 
     #[derive(Default)]
     pub struct PhysicsObj {
@@ -37,21 +32,18 @@ pub mod physics_obj {
         }
 
         #[allow(dead_code)]
-        pub fn run_physics(&mut self) {
-            let dt: f32 = 0.01 / super::SUBSTEP as f32;
-
+        pub fn run_physics(&mut self, dt: f32, _list: &Vec<PhysicsObj>) {
             #[allow(unused_mut)]
             let mut acceleration = GRAVITY;
-
-            for _n in 0..(PHYSICS_SPEED * SUBSTEP) {
-                if self.position.y + self.radius > screen_height() {
-                    self.velocity.y = -self.velocity.y;
-                    self.position.y = screen_height() - self.radius;
-                }
-
-                self.velocity += acceleration * dt;
-                self.position += self.velocity * dt;
+            
+            if self.position.y + self.radius > screen_height() {
+                self.velocity.y = -self.velocity.y;
+                self.position.y = screen_height() - self.radius;
             }
+
+            self.velocity += acceleration * dt;
+            self.position += self.velocity * dt;
+            
         }
     }
 }
