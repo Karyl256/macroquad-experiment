@@ -2,6 +2,7 @@ use macroquad::prelude::*;
 
 mod game_engine;
 mod physics_obj;
+mod static_obj;
 
 #[macroquad::main("Program")]
 async fn main() {
