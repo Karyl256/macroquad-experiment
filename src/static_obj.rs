@@ -3,11 +3,11 @@
 pub mod static_obj {
     use macroquad::prelude::*;
 
-    use crate::{physics_obj::physics_obj::PhysicsObj, rotate_vec2};
+    use crate::{physics_obj::physics_obj::PhysicsBody, rotate_vec2};
 
     #[allow(dead_code)]
     #[derive(Default)]
-    pub enum StaticObj {
+    pub enum StaticBody {
         Rectangle {
             position: Vec2,
             rotation: f32,
@@ -23,19 +23,20 @@ pub mod static_obj {
         Empty 
     }
 
-    impl StaticObj {
+    impl StaticBody {
         #[allow(dead_code)]
-        pub fn new_rectangle( position: Vec2, dimensions: Vec2, rotation: f32, color: Color) -> StaticObj {
-            StaticObj::Rectangle { 
+        pub fn new_rectangle( position: Vec2, dimensions: Vec2, rotation: f32, color: Color) -> StaticBody {
+            StaticBody::Rectangle { 
                 position, 
                 rotation, 
                 dimensions, 
                 color 
             }
         }
+
         #[allow(dead_code)]
-        pub fn new_circle( position: Vec2, radius: f32, color: Color) -> StaticObj {
-            StaticObj::Circle { 
+        pub fn new_circle( position: Vec2, radius: f32, color: Color) -> StaticBody {
+            StaticBody::Circle { 
                 position, 
                 radius, 
                 color 
@@ -45,26 +46,27 @@ pub mod static_obj {
         #[allow(dead_code)]
         pub fn draw(&self) {
             match self {
-                StaticObj::Rectangle { position: pos, rotation: rot, dimensions: size, color : c } => {
-                     draw_rectangle_ex(pos.x, pos.y, size.x, size.y, DrawRectangleParams { 
-                        offset: vec2(0.5, 0.5), rotation: *rot, color: *c 
+                StaticBody::Rectangle { position, rotation, dimensions: size, color  } => {
+                     draw_rectangle_ex(position.x, position.y, size.x, size.y, DrawRectangleParams { 
+                        offset: vec2(0.5, 0.5), rotation: *rotation, color: *color
                     });
                 },
-                StaticObj::Circle { position: pos, radius: r, color: c } => {
-                    draw_circle(pos.x, pos.y, *r, *c);
+                StaticBody::Circle { position, radius, color } => {
+                    draw_circle(position.x, position.y, *radius, *color);
                 },
-                StaticObj::Empty => ()
+                StaticBody::Empty => ()
             }
         }
 
         #[allow(dead_code)]
-        pub fn find_collision_point(&self, obj: &PhysicsObj) -> Option<(Vec2, Vec2, f32)> {
+        //Returns (Collision point, collision normal, penetration)
+        pub fn collision_check(&self, obj: &PhysicsBody) -> Option<(Vec2, Vec2, f32)> {
             match self {
-                StaticObj::Circle { position, radius, color: _ } => {
+                StaticBody::Circle { position, radius, color: _ } => {
                     let displacement: Vec2 = obj.position - *position;
                     let distance_squared: f32 = displacement.length_squared();
 
-                    //If too far return nothing
+                    //If too far away return nothing
                     if distance_squared > (radius + obj.radius) * (radius + obj.radius) {
                         return None
                     }
@@ -79,22 +81,23 @@ pub mod static_obj {
                        radius + obj.radius - distance
                     ))
                 },
-                StaticObj::Rectangle { position, rotation, dimensions, .. } => {
+                StaticBody::Rectangle { position, rotation, dimensions, .. } => {
                     let local_object_position = rotate_vec2(obj.position - *position, -rotation);
 
                     // Check for a potential collision
-                    if let Some(mut o) = StaticObj::rectangle_collision_local(*dimensions, local_object_position, obj.radius) {
+                    if let Some(mut out) = StaticBody::rectangle_collision_local(*dimensions, local_object_position, obj.radius) {
                         // Rotate the contact point and the normal back to world space
-                        o.0 = rotate_vec2(o.0, *rotation) + *position;
-                        o.1 = rotate_vec2(o.1, *rotation);
-                        Some(o)
+                        out.0 = rotate_vec2(out.0, *rotation) + *position;
+                        out.1 = rotate_vec2(out.1, *rotation);
+                        Some(out)
                     } else {
                         None
                     }
                 },
-                StaticObj::Empty => None
+                StaticBody::Empty => None
             }
         }
+
         fn rectangle_collision_local(dimensions: Vec2, obj_position: Vec2, obj_radius: f32) -> Option<(Vec2, Vec2, f32)> {
             
             let displacement: Vec2 = obj_position;

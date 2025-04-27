@@ -27,7 +27,7 @@ fn window_config() -> Conf {
 
 #[macroquad::main(window_config)]
 async fn main() {
-    let mut game = game_engine::game_engine::Game::create();
+    let mut game = game_engine::game_engine::GameWorld::create();
 
     let mut timer = 0.0;
     loop {

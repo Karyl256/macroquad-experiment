@@ -3,20 +3,20 @@ pub mod physics_obj {
 
     use macroquad::prelude::*;
 
-    use crate::{game_engine::GRAVITY, static_obj::static_obj::StaticObj};
+    use crate::{game_engine::GRAVITY, static_obj::static_obj::StaticBody};
 
     #[derive(Default)]
-    pub struct PhysicsObj {
+    pub struct PhysicsBody {
         pub position: Vec2,
         pub velocity: Vec2,
         pub radius: f32,
     }
 
-    impl PhysicsObj {
+    impl PhysicsBody {
 
         #[allow(dead_code)]
-        pub fn empty() -> PhysicsObj {
-            PhysicsObj {
+        pub fn empty() -> PhysicsBody {
+            PhysicsBody {
                 position: Vec2::new(0.0, 0.0),
                 velocity: Vec2::new(0.0, 0.0),
                 radius: 1.0,
@@ -24,8 +24,8 @@ pub mod physics_obj {
         }
 
         #[allow(dead_code)]
-        pub fn new(position: Vec2, velocity: Vec2, radius: f32) -> PhysicsObj {
-            PhysicsObj {
+        pub fn new(position: Vec2, velocity: Vec2, radius: f32) -> PhysicsBody {
+            PhysicsBody {
                 position,
                 velocity,
                 radius,
@@ -36,16 +36,16 @@ pub mod physics_obj {
             (self.velocity.length_squared() / 2.0) + (bottom_y - self.position.y) * GRAVITY.y
         }
 
-        #[allow(dead_code)]
-        pub fn run_physics(&mut self, dt: f32, list: &Vec<StaticObj>, debug_queue: &mut Vec<Vec2>) {
+        pub fn update_physics(&mut self, dt: f32, colliders: &Vec<StaticBody>, debug_queue: &mut Vec<Vec2>) {
             #[allow(unused_mut)]
             let mut acceleration = GRAVITY;
 
             self.velocity += acceleration * dt;
             self.position += self.velocity * dt - 0.5 * acceleration * dt * dt;
 
-            for obj in list {
-                let contact = obj.find_collision_point(self);
+            for obj in colliders {
+                // contact (collision point, collision normal, penetration_depth)
+                let contact = obj.collision_check(self);
                 if let Some(c) = contact {
                     debug_queue.push(c.0);
                     debug_queue.push((c.1 * c.2) + self.position);
