@@ -1,5 +1,5 @@
 pub mod physics_obj {
-    const BOUNCINESS: f32 = 1.0;
+    const BOUNCINESS: f32 = 0.7;
 
     use macroquad::prelude::*;
 
@@ -42,27 +42,20 @@ pub mod physics_obj {
             let mut acceleration = GRAVITY;
 
             self.velocity += acceleration * dt;
-            self.position += self.velocity * dt;
-
-            if self.position.y + self.radius > screen_height() {
-                self.velocity.y = -self.velocity.y;
-                self.position.y = screen_height() - self.radius;
-            }
+            self.position += self.velocity * dt - 0.5 * acceleration * dt * dt;
 
             for obj in list {
                 let contact = obj.find_collision_point(self);
-                match contact {
-                    Some(c) => { 
-                        debug_queue.push(c.0);
-                        debug_queue.push((c.1 * c.2) + self.position);
+                if let Some(c) = contact {
+                    debug_queue.push(c.0);
+                    debug_queue.push((c.1 * c.2) + self.position);
 
-                        self.position += c.1 * c.2;
-                        let velocity_dot = self.velocity.dot(c.1);
-                        if velocity_dot < 0.0 {
-                            self.velocity = self.velocity - (1.0 + BOUNCINESS) * velocity_dot * c.1;
-                        }
-                    },
-                    None => {}
+                    let velocity_dot = self.velocity.dot(c.1);
+                    if velocity_dot < 0.0 {
+                        self.velocity = self.velocity - (1.0 + BOUNCINESS) * velocity_dot * c.1;
+                    }
+
+                    self.position += c.1 * c.2;
                 }
             }
         }
