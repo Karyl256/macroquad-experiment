@@ -33,8 +33,8 @@ pub mod game_engine {
             let mut created_game = GameWorld::default();
 
             created_game.ball = PhysicsBody::new(
-                vec2(550.0, 500.0),
-                vec2(0.0, -1000.0),
+                vec2(565.0, 500.0),
+                vec2(0.0, -2000.0),
                 15.0,
             );
 
@@ -91,13 +91,57 @@ pub mod game_engine {
             self.colliders.push(StaticBody::new_rectangle(
                 vec2(300.0, 10.0), vec2(600.0, 20.0), 0.0, GRAY
             ));
-            //Angled
+            //Inside wall
             self.colliders.push(StaticBody::new_rectangle(
-                vec2(550.0, 50.0), vec2(60.0, 10.0), 0.9, PURPLE
+                vec2(539.0, 400.0),  vec2(20.0, 320.0), 0.0, GREEN
             ));
+            //Angled
             self.colliders.push(StaticBody::new_rectangle(
                 vec2(300.0, 300.0), vec2(60.0, 10.0), 0.7, PURPLE
             ));
+            self.create_curve(vec2(350.0, 250.0), 230.1, 20.0, -std::f32::consts::FRAC_PI_2, 0.0, 20, BLUE);
+            self.create_curve(vec2(350.0, 260.0), 180.0, 20.0, -std::f32::consts::FRAC_PI_3, 0.0, 15, BLUE);
+            
+        }
+
+        #[allow(dead_code)]
+        pub fn create_curve(
+            &mut self,
+            center: Vec2,
+            radius: f32,
+            thickness: f32,
+            start_angle: f32,
+            end_angle: f32,
+            steps: usize,
+            color: Color,
+        ) {
+            if steps == 0 { return; }
+    
+            let angle_step = (end_angle - start_angle) / steps as f32;
+            for i in 0..steps {
+                let angle = start_angle + i as f32 * angle_step;
+    
+                // Direction vector along the arc
+                let dir = vec2(angle.cos(), angle.sin());
+                // Center of rectangle: radius + half thickness outward
+                let rect_center = center + dir * (radius + thickness * 0.5);
+    
+                // Rectangle size
+                let arc_length = (radius + thickness) * angle_step; // length along arc
+                let rect_width = arc_length * 1.05; // slight overlap (5% more)
+                let rect_size = vec2(rect_width, thickness);
+    
+                // Rotation (tangent to the curve)
+                let rotation = angle + std::f32::consts::FRAC_PI_2;
+    
+                // Push rectangle into physics objects
+                self.colliders.push(StaticBody::new_rectangle(
+                    rect_center,
+                    rect_size,
+                    rotation,
+                    color,
+                ));
+            }
         }
     }
 }
