@@ -1,5 +1,5 @@
 pub mod physics_obj {
-    const BOUNCINESS: f32 = 0.7;
+    const BOUNCINESS: f32 = 0.6;
 
     use macroquad::prelude::*;
 
@@ -36,7 +36,7 @@ pub mod physics_obj {
             (self.velocity.length_squared() / 2.0) + (bottom_y - self.position.y) * GRAVITY.y
         }
 
-        pub fn update_physics(&mut self, dt: f32, colliders: &Vec<StaticBody>, debug_queue: &mut Vec<(Vec2, i32)>) {
+        pub fn update_physics(&mut self, dt: f32, colliders: &Vec<StaticBody>, debug_draw_points: &mut Vec<(Vec2, i32)>) {
             #[allow(unused_mut)]
             let mut acceleration = GRAVITY;
 
@@ -47,15 +47,33 @@ pub mod physics_obj {
                 // contact (collision point, collision normal, penetration_depth)
                 let contact = obj.collision_check(self);
                 if let Some(c) = contact {
-                    debug_queue.push((c.0, 5));
-                    debug_queue.push(((c.1 * c.2) + self.position, 5));
+                    debug_draw_points.push((c.0, 5));
+                    debug_draw_points.push(((c.1 * c.2) + self.position, 5));
 
-                    let velocity_dot = self.velocity.dot(c.1);
+                    // Compute relative velocity at contact point
+                    let obj_velocity_at_point = match obj {
+                        StaticBody::Flipper {
+                            origin,
+                            angular_velocity,
+                            ..
+                        } => {
+                            let r = c.0 - *origin;
+                            Vec2::new(-r.y, r.x) * *angular_velocity
+                        }
+                        _ => Vec2::ZERO,
+                    };
+                    
+                    let relative_velocity = self.velocity - obj_velocity_at_point;
+
+                    let velocity_dot = relative_velocity.dot(c.1);
                     if velocity_dot < 0.0 {
-                        self.velocity = self.velocity - (1.0 + BOUNCINESS) * velocity_dot * c.1;
+                        let impulse = (1.0 + BOUNCINESS) * velocity_dot;
+
+                        self.velocity -= impulse * c.1;
+                        self.position += c.1 * c.2;
                     }
 
-                    self.position += c.1 * c.2;
+                    //self.position += c.1 * c.2;
                 }
             }
         }

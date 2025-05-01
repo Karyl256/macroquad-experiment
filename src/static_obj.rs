@@ -1,6 +1,8 @@
 
 
 pub mod static_obj {
+    use std::f32::consts::PI;
+
     use macroquad::prelude::*;
 
     use crate::{physics_obj::physics_obj::PhysicsBody, rotate_vec2};
@@ -25,6 +27,16 @@ pub mod static_obj {
             angle_start: f32,
             angle_end: f32,
             render: Vec<StaticBody>,
+        },
+        Flipper {
+            origin: Vec2,
+            offset: Vec2,
+            dimensions: Vec2,
+            current_rotation: f32,
+            rotation_max: f32,
+            rotation_min: f32,
+            angular_velocity: f32,
+            color: Color,
         },
         #[default]
         Empty 
@@ -54,7 +66,10 @@ pub mod static_obj {
         pub fn new_curve(center: Vec2, radius: f32, thickness: f32, angle_start: f32, angle_end: f32, steps: usize, color: Color) -> StaticBody {
             let mut out = StaticBody::Curve { center, radius, angle_start, angle_end, render: Vec::new() };
 
-            let angle_step = (angle_end - angle_start) / steps as f32;
+            let mut angle_step = angle_end - angle_start;
+            if angle_step < 0.0 { angle_step += 2.0 * PI; }
+            angle_step = angle_step / steps as f32;
+
             for i in 0..steps {
                 let angle = angle_start + i as f32 * angle_step;
     
@@ -84,6 +99,19 @@ pub mod static_obj {
         }
 
         #[allow(dead_code)]
+        pub fn new_flipper (origin: Vec2, offset: Vec2, dimensions: Vec2, rotation_min: f32, rotation_max: f32, color: Color) -> StaticBody {
+            StaticBody::Flipper { 
+                origin, 
+                offset, 
+                dimensions, 
+                current_rotation: rotation_min, 
+                rotation_max, rotation_min, 
+                angular_velocity: 0.0, 
+                color
+            }
+        }
+
+        #[allow(dead_code)]
         pub fn draw(&self) {
             match self {
                 StaticBody::Rectangle { position, rotation, dimensions: size, color  } => {
@@ -101,6 +129,14 @@ pub mod static_obj {
                         }
                         obj.draw();
                     }
+                }
+                StaticBody::Flipper { origin, offset, dimensions, current_rotation, color, .. } => {
+                    let rotated_offset = rotate_vec2(*offset, *current_rotation);
+                    let position = *origin + rotated_offset;
+
+                    draw_rectangle_ex(position.x, position.y, dimensions.x, dimensions.y, DrawRectangleParams { 
+                        offset: vec2(0.5, 0.5), rotation: *current_rotation, color: *color
+                    });
                 }
                 StaticBody::Empty => ()
             }
@@ -148,7 +184,7 @@ pub mod static_obj {
 
                     //Exit early if too far or too close
                     if distance_to_center > radius + obj.radius || distance_to_center < radius - obj.radius {
-                        return None
+                        return None;
                     }
 
                     //Check can it touch inside part or edges the curve
@@ -171,7 +207,7 @@ pub mod static_obj {
                         let collision_point_displacement: Vec2 = obj.position - collision_point;
                         let penetration: f32 = obj.radius - collision_point_displacement.length();
 
-                        return  Some((collision_point, collision_point_displacement.normalize(), penetration));
+                        Some((collision_point, collision_point_displacement.normalize(), penetration))
                     }
                     //Edges
                     else {
@@ -184,19 +220,27 @@ pub mod static_obj {
                         if start_distance < end_distance {
                             let start_displacement = obj.position - start;
                             if start_displacement.length() < obj.radius {
-                                return Some((start, start_displacement.normalize(), obj.radius - start_displacement.length()));
+                                Some((start, start_displacement.normalize(), obj.radius - start_displacement.length()))
+                            }
+                            else {
+                                None
                             }
                         }
                         else {
                             let end_displacement = obj.position - end;
                             if end_displacement.length() < obj.radius {
-                                return Some((end, end_displacement.normalize(), obj.radius - end_displacement.length()));
+                                Some((end, end_displacement.normalize(), obj.radius - end_displacement.length()))
+                            }
+                            else {
+                                None 
                             }
                         }
                     }
+                },
+                StaticBody::Flipper { origin, offset, dimensions, current_rotation, color, .. } => {
+                    let position = *origin + rotate_vec2(*offset, *current_rotation);
 
-
-                    None
+                    StaticBody::new_rectangle(position, *dimensions, *current_rotation, *color).collision_check(obj)
                 },
                 StaticBody::Empty => None
             }
