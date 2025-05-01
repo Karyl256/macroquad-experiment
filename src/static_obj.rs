@@ -19,13 +19,20 @@ pub mod static_obj {
             radius: f32,
             color: Color,
         },
+        Curve {
+            center: Vec2,
+            radius: f32,
+            angle_start: f32,
+            angle_end: f32,
+            render: Vec<StaticBody>,
+        },
         #[default]
         Empty 
     }
 
     impl StaticBody {
         #[allow(dead_code)]
-        pub fn new_rectangle( position: Vec2, dimensions: Vec2, rotation: f32, color: Color) -> StaticBody {
+        pub fn new_rectangle(position: Vec2, dimensions: Vec2, rotation: f32, color: Color) -> StaticBody {
             StaticBody::Rectangle { 
                 position, 
                 rotation, 
@@ -35,12 +42,45 @@ pub mod static_obj {
         }
 
         #[allow(dead_code)]
-        pub fn new_circle( position: Vec2, radius: f32, color: Color) -> StaticBody {
+        pub fn new_circle(position: Vec2, radius: f32, color: Color) -> StaticBody {
             StaticBody::Circle { 
                 position, 
                 radius, 
                 color 
             }
+        }
+        
+        #[allow(dead_code)]
+        pub fn new_curve(center: Vec2, radius: f32, thickness: f32, angle_start: f32, angle_end: f32, steps: usize, color: Color) -> StaticBody {
+            let mut out = StaticBody::Curve { center, radius, angle_start, angle_end, render: Vec::new() };
+
+            let angle_step = (angle_end - angle_start) / steps as f32;
+            for i in 0..steps {
+                let angle = angle_start + i as f32 * angle_step;
+    
+                // Direction vector along the arc
+                let dir = vec2(angle.cos(), angle.sin());
+                // Center of rectangle: radius + half thickness outward
+                let rect_center = center + dir * (radius + thickness * 0.5);
+    
+                // Rectangle size
+                let arc_length = (radius + thickness.max(0.0)) * angle_step; // length along arc
+                let rect_width = arc_length * 1.05; // slight overlap (5% more)
+                let rect_size = vec2(rect_width, thickness);
+    
+                // Rotation (tangent to the curve)
+                let rotation = angle + std::f32::consts::FRAC_PI_2;
+    
+                // Push rectangle into physics objects
+                if let StaticBody::Curve { render, .. } = &mut out {
+                    render.push(StaticBody::new_rectangle(
+                    rect_center,
+                    rect_size,
+                    rotation,
+                    color,
+                ));}
+            }
+            out
         }
 
         #[allow(dead_code)]
@@ -54,6 +94,14 @@ pub mod static_obj {
                 StaticBody::Circle { position, radius, color } => {
                     draw_circle(position.x, position.y, *radius, *color);
                 },
+                StaticBody::Curve { render, .. } => {
+                    for obj in render {
+                        if let StaticBody::Curve {..} = obj {
+                            panic!("Why tf is there recursion in draw of Curve???");
+                        }
+                        obj.draw();
+                    }
+                }
                 StaticBody::Empty => ()
             }
         }
@@ -70,7 +118,7 @@ pub mod static_obj {
                     if distance_squared > (radius + obj.radius) * (radius + obj.radius) {
                         return None
                     }
-                    //If inside object just don't do anything right now. Better than undefined behaviour
+                    //If inside centre just don't do anything right now. Better than undefined behaviour
                     if distance_squared == 0.0 { return None; }
 
                     let distance: f32 = distance_squared.sqrt();
@@ -93,6 +141,62 @@ pub mod static_obj {
                     } else {
                         None
                     }
+                },
+                StaticBody::Curve { center, radius, render: _, angle_start, angle_end } => {
+                    let displacement: Vec2 = obj.position - *center;
+                    let distance_to_center: f32 = displacement.length();
+
+                    //Exit early if too far or too close
+                    if distance_to_center > radius + obj.radius || distance_to_center < radius - obj.radius {
+                        return None
+                    }
+
+                    //Check can it touch inside part or edges the curve
+                    let is_angle_between: bool = {
+                        let angle_to_obj = displacement.to_angle().rem_euclid(std::f32::consts::TAU);
+                        let angle_start = angle_start.rem_euclid(std::f32::consts::TAU);
+                        let angle_end = angle_end.rem_euclid(std::f32::consts::TAU);
+
+                        if angle_start < angle_end {
+                            angle_to_obj <= angle_end && angle_to_obj >= angle_start
+                        }
+                        else {
+                            angle_to_obj <= angle_end || angle_to_obj >= angle_start
+                        }
+                    };
+                    
+                    //If object touches arc's inside then
+                    if is_angle_between {
+                        let collision_point: Vec2 = displacement / distance_to_center * *radius + *center;
+                        let collision_point_displacement: Vec2 = obj.position - collision_point;
+                        let penetration: f32 = obj.radius - collision_point_displacement.length();
+
+                        return  Some((collision_point, collision_point_displacement.normalize(), penetration));
+                    }
+                    //Edges
+                    else {
+                        let start: Vec2 = *center + rotate_vec2(vec2(*radius, 0.0), *angle_start);
+                        let end: Vec2 = *center + rotate_vec2(vec2(*radius, 0.0), *angle_end);
+
+                        let start_distance = start.distance(obj.position);
+                        let end_distance = end.distance(obj.position);
+
+                        if start_distance < end_distance {
+                            let start_displacement = obj.position - start;
+                            if start_displacement.length() < obj.radius {
+                                return Some((start, start_displacement.normalize(), obj.radius - start_displacement.length()));
+                            }
+                        }
+                        else {
+                            let end_displacement = obj.position - end;
+                            if end_displacement.length() < obj.radius {
+                                return Some((end, end_displacement.normalize(), obj.radius - end_displacement.length()));
+                            }
+                        }
+                    }
+
+
+                    None
                 },
                 StaticBody::Empty => None
             }

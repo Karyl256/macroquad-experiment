@@ -36,7 +36,7 @@ pub mod physics_obj {
             (self.velocity.length_squared() / 2.0) + (bottom_y - self.position.y) * GRAVITY.y
         }
 
-        pub fn update_physics(&mut self, dt: f32, colliders: &Vec<StaticBody>, debug_queue: &mut Vec<Vec2>) {
+        pub fn update_physics(&mut self, dt: f32, colliders: &Vec<StaticBody>, debug_queue: &mut Vec<(Vec2, i32)>) {
             #[allow(unused_mut)]
             let mut acceleration = GRAVITY;
 
@@ -47,8 +47,8 @@ pub mod physics_obj {
                 // contact (collision point, collision normal, penetration_depth)
                 let contact = obj.collision_check(self);
                 if let Some(c) = contact {
-                    debug_queue.push(c.0);
-                    debug_queue.push((c.1 * c.2) + self.position);
+                    debug_queue.push((c.0, 5));
+                    debug_queue.push(((c.1 * c.2) + self.position, 5));
 
                     let velocity_dot = self.velocity.dot(c.1);
                     if velocity_dot < 0.0 {

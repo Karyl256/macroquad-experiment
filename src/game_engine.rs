@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 //Gravity strength in world space (positive Y is down)
-pub const GRAVITY: Vec2 = Vec2::new(0.0, 1000.0);
+pub const GRAVITY: Vec2 = Vec2::new(0.0, 500.0);
 //Physics time scaling (multiplier)
 pub const PHYSICS_SPEED: f32 = 1.0;
 //Target fps for physics simulation steps, frame time is static dt
@@ -9,7 +9,6 @@ pub const PHYSICS_TARGET_FPS: f32 = 144.0;
 pub const PHYSICS_TARGET_FRAMETIME: f32 = 1.0 / PHYSICS_TARGET_FPS * PHYSICS_SPEED;
 //Cap to how many physics frames can happen in a game frame
 pub const MAX_PHYSICS_UPDATES_PER_FRAME: u32 = 10;
-
 
 
 pub mod game_engine {
@@ -25,7 +24,7 @@ pub mod game_engine {
         colliders: Vec<StaticBody>,
         physics_accumulated_time: f32,
 
-        debug_draw_points: Vec<Vec2>,
+        debug_draw_points: Vec<(Vec2, i32)>,
     }
 
     impl GameWorld {
@@ -34,7 +33,7 @@ pub mod game_engine {
 
             created_game.ball = PhysicsBody::new(
                 vec2(565.0, 500.0),
-                vec2(0.0, -2000.0),
+                vec2(0.0, -1000.0),
                 15.0,
             );
 
@@ -65,10 +64,11 @@ pub mod game_engine {
                 obj.draw();
             }
 
-            for point in &self.debug_draw_points {
-                draw_circle(point.x, point.y, 5.0, YELLOW)
+            for point in &mut self.debug_draw_points {
+                draw_circle(point.0.x, point.0.y, 5.0, YELLOW);
+                point.1 -= 1;
             }
-            self.debug_draw_points.clear();
+            self.debug_draw_points.retain(|p| p.1 > 0);
         }
 
         pub fn initialize_world(&mut self) {
@@ -99,49 +99,16 @@ pub mod game_engine {
             self.colliders.push(StaticBody::new_rectangle(
                 vec2(300.0, 300.0), vec2(60.0, 10.0), 0.7, PURPLE
             ));
-            self.create_curve(vec2(350.0, 250.0), 230.1, 20.0, -std::f32::consts::FRAC_PI_2, 0.0, 20, BLUE);
-            self.create_curve(vec2(350.0, 260.0), 180.0, 20.0, -std::f32::consts::FRAC_PI_3, 0.0, 15, BLUE);
+            self.colliders.push(StaticBody::new_curve(
+                vec2(350.0, 250.0), 230.0, 20.0, -1.51, 0.0, 30, BLUE
+            ));
+            self.colliders.push(StaticBody::new_curve(
+                vec2(350.0, 250.0), 195.0, -20.0, -0.7, 0.0, 30, BLUE
+            ));
+            self.colliders.push(StaticBody::new_curve(
+                vec2(100.0, 100.0), 40.0, 10.0, 0.0, 2.0, 30, PINK
+            ));
             
-        }
-
-        #[allow(dead_code)]
-        pub fn create_curve(
-            &mut self,
-            center: Vec2,
-            radius: f32,
-            thickness: f32,
-            start_angle: f32,
-            end_angle: f32,
-            steps: usize,
-            color: Color,
-        ) {
-            if steps == 0 { return; }
-    
-            let angle_step = (end_angle - start_angle) / steps as f32;
-            for i in 0..steps {
-                let angle = start_angle + i as f32 * angle_step;
-    
-                // Direction vector along the arc
-                let dir = vec2(angle.cos(), angle.sin());
-                // Center of rectangle: radius + half thickness outward
-                let rect_center = center + dir * (radius + thickness * 0.5);
-    
-                // Rectangle size
-                let arc_length = (radius + thickness) * angle_step; // length along arc
-                let rect_width = arc_length * 1.05; // slight overlap (5% more)
-                let rect_size = vec2(rect_width, thickness);
-    
-                // Rotation (tangent to the curve)
-                let rotation = angle + std::f32::consts::FRAC_PI_2;
-    
-                // Push rectangle into physics objects
-                self.colliders.push(StaticBody::new_rectangle(
-                    rect_center,
-                    rect_size,
-                    rotation,
-                    color,
-                ));
-            }
         }
     }
 }
