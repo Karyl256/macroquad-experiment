@@ -3,17 +3,7 @@ use macroquad::prelude::*;
 mod game_engine;
 mod physics_obj;
 mod static_obj;
-
-use macroquad::math::Vec2;
-
-fn rotate_vec2(v: Vec2, angle: f32) -> Vec2 {
-    let cos_theta = angle.cos();
-    let sin_theta = angle.sin();
-    Vec2::new(
-        v.x * cos_theta - v.y * sin_theta,
-        v.x * sin_theta + v.y * cos_theta,
-    )
-}
+pub mod helper;
 
 fn window_config() -> Conf {
     Conf {

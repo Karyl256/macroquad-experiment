@@ -5,7 +5,7 @@ pub mod static_obj {
 
     use macroquad::prelude::*;
 
-    use crate::{physics_obj::physics_obj::PhysicsBody, rotate_vec2};
+    use crate::{helper::helper::rotate_vec2, physics_obj::physics_obj::PhysicsBody};
 
     #[allow(dead_code)]
     #[derive(Default)]

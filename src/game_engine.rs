@@ -15,12 +15,13 @@ pub const FLIPPER_SPEED: f32 = 7.5;
 pub const LAUNCHER_MAX_TIME: f32 = 2.0;
 pub const LAUNCHER_MAX_STRENGTH: f32 = 820.0;
 
+
 pub mod game_engine {
     use std::f32::consts::PI;
 
     use macroquad::prelude::*;
 
-    use crate::{physics_obj::physics_obj::PhysicsBody, static_obj::static_obj::StaticBody};
+    use crate::{circle, curve, flipper, physics_obj::physics_obj::PhysicsBody, rect, static_obj::static_obj::StaticBody};
     use super::*;
 
     #[derive(Default)]
@@ -71,7 +72,9 @@ pub mod game_engine {
             self.update_flipper(dt, 0, KeyCode::Left);
             self.update_flipper(dt, 1, KeyCode::Right);
 
-            if is_key_pressed(KeyCode::R) {
+            //If R pressed or ball is out of bounds, restart
+            //TODO: ADD HEALTH SYSTEM
+            if is_key_pressed(KeyCode::R) || self.ball.position.y > (screen_height() + 300.0) {
                 self.ball = PhysicsBody::new(
                     vec2(465.0, 600.0),
                     vec2(0.0, 0.0),
@@ -141,84 +144,63 @@ pub mod game_engine {
         }
 
         pub fn initialize_world(&mut self) {
-            //FLIPPERS
-            self.colliders.push(StaticBody::new_flipper(
-                vec2(180.0, 630.0), vec2(30.0, 0.0), vec2(70.0, 10.0), 0.16 * PI, -0.5, PURPLE
-            ));
-            self.colliders.push(StaticBody::new_flipper(
-                vec2(320.0, 630.0), vec2(-30.0, 0.0), vec2(70.0, 10.0), -0.16 * PI, 0.5, PURPLE
-            ));
+            // Flippers
+            flipper!(self, vec2(180.0, 630.0), vec2( 24.0, 0.0), vec2(60.0, 10.0),  0.16 * PI, -0.5, PURPLE);
+            flipper!(self, vec2(320.0, 630.0), vec2(-24.0, 0.0), vec2(60.0, 10.0), -0.16 * PI,  0.5, PURPLE);
 
+            // Floor
+            rect!(self, vec2(116.0,  595.1),  vec2(144.8, 10.0),  0.16 * PI, GRAY);
+            rect!(self, vec2(375.7, 599.91), vec2(127.2, 10.0), -0.16 * PI, GRAY);
 
-            //Floor
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(92.5, 582.0), vec2(201.0, 10.0), 0.16 * PI, GRAY
-            ));
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(375.7, 599.91), vec2(127.2, 10.0), -0.16 * PI, GRAY
-            ));
-            //Lower floor
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(92.5, 622.0), vec2(201.0, 10.0), 0.16 * PI, GRAY
-            ));
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(375.7, 639.91), vec2(127.2, 10.0), -0.16 * PI, GRAY
-            ));
-            //Walls
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(490.0, 350.0), vec2(20.0, 700.0), 0.0, GRAY
-            ));
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(10.0, 350.0), vec2(20.0, 700.0), 0.0, GRAY
-            ));
-            //Roof
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(250.0, 10.0), vec2(500.0, 20.0), 0.0, GRAY
-            ));
-            //Inside wall
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(445.0, 435.0),  vec2(10.0, 390.0), 0.0, GRAY
-            ));
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(465.0, 620.0), vec2(30.0, 20.0), 0.0, GRAY));
+            // Lower floor
+            rect!(self, vec2(87.69, 619.2), vec2(77.3, 10.0), 0.16 * PI, GRAY);
+            rect!(self, vec2(375.7, 639.91), vec2(127.2, 10.0), -0.16 * PI, GRAY);
 
-            //Enter curves: outside, inside
-            self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 230.0, 20.0, -2.12, 0.0, 30, BLUE
-            ));
-            self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 200.0, -10.0, -1.1, 0.0, 0, BLUE
-            ));
+            // Walls
+            rect!(self, vec2(490.0, 350.0), vec2(20.0, 700.0), 0.0, GRAY);
+            rect!(self, vec2(10.0, 350.0), vec2(20.0, 700.0), 0.0, GRAY);
 
-            self.colliders.push(StaticBody::new_curve(
-                vec2(75.0, 75.0), 50.0, 10.0, PI * 0.65, PI * -0.11, 100, PINK
-            ));
+            // Roof
+            rect!(self, vec2(250.0, 10.0), vec2(500.0, 20.0), 0.0, GRAY);
 
-            self.colliders.push(StaticBody::new_circle(vec2(75.0, 75.0), 12.5, PINK));
+            // Inside wall
+            rect!(self, vec2(445.0, 435.0), vec2(10.0, 390.0), 0.0, GRAY);
+            rect!(self, vec2(465.0, 620.0), vec2(30.0, 20.0), 0.0, GRAY);
 
-            //Outside continue
-            self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 230.0, 20.0, PI * 0.75, -2.55, 30, BLUE
-            ));
-            //Tunnel, right
-            self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 190.0, 10.0, -1.1, 0.5, 40, GRAY
-            ));
-            self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 165.0, -10.0, -1.1, 0.3, 40, GRAY
-            ));
-            self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 155.0, 10.0, -1.1, 0.3, 0, GREEN
-            ));
+            //Opposite inside wall
+            rect!(self, vec2(55.0, 510.0), vec2(10.0, 110.0), 0.0, GRAY);
 
-            //Top 2 splitters
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(230.0, 130.0), vec2(10.0, 30.0), 0.0, GREEN
-            ));
-            self.colliders.push(StaticBody::new_rectangle(
-                vec2(270.0, 130.0), vec2(10.0, 30.0), 0.0, GREEN
-            ));
+            // Enter curves
+            curve!(self, vec2(250.0, 250.0), 230.0, 20.0, -2.12, 0.0, 60, GRAY);
+            curve!(self, vec2(250.0, 250.0), 200.0, -10.0, -1.1, 0.0, 0, GRAY);
+            curve!(self, vec2(75.0, 75.0), 50.0, 10.0, PI * 0.65, PI * -0.11, 100, PINK);
+
+            // Bumper
+            circle!(self, vec2(75.0, 75.0), 12.5, PINK);
+
+            // Outside continue
+            curve!(self, vec2(250.0, 250.0), 230.0, 10.0, PI * 0.75, -2.55, 30, GRAY);
+
+            // Tunnel
+            curve!(self, vec2(250.0, 250.0), 190.0, 10.0, -1.15, 0.5, 40, GRAY);
+            curve!(self, vec2(250.0, 250.0), 165.0, -10.0, -1.15, 0.3, 40, GRAY);
+            curve!(self, vec2(250.0, 250.0), 155.0, 10.0, -1.15, 0.3, 0, GREEN);
+
+            // Top 2 splitters
+            rect!(self, vec2(230.0, 130.0), vec2(10.0, 30.0), 0.0, GRAY);
+            rect!(self, vec2(270.0, 130.0), vec2(10.0, 30.0), 0.0, GRAY);
+
+            //Left top abomination
+            curve!(self, vec2(250.0, 250.0), 200.0, -5.0, -2.24, -1.96, 20, GRAY);
+            rect!(self, vec2(130.0, 110.0), vec2(10.0, 30.0), 0.0, GRAY);
+            rect!(self, vec2(170.0, 85.0), vec2(10.0, 30.0), 0.0, GRAY);
+            rect!(self, vec2(150.0, 112.0), vec2(54.0, 10.0), PI * -0.175, GRAY);
+            rect!(self, vec2(150.0, 95.0), vec2(45.0, 25.0), PI * -0.175, GRAY);
             
         }
     }
+
+
+
 }
+
