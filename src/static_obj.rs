@@ -15,11 +15,13 @@ pub mod static_obj {
             rotation: f32,
             dimensions: Vec2,
             color: Color,
+            impact_force: f32,
         },
         Circle {
             position: Vec2,
             radius: f32,
             color: Color,
+            impact_force: f32,
         },
         Curve {
             center: Vec2,
@@ -44,21 +46,23 @@ pub mod static_obj {
 
     impl StaticBody {
         #[allow(dead_code)]
-        pub fn new_rectangle(position: Vec2, dimensions: Vec2, rotation: f32, color: Color) -> StaticBody {
+        pub fn new_rectangle(position: Vec2, dimensions: Vec2, rotation: f32, color: Color, impact_force: f32) -> StaticBody {
             StaticBody::Rectangle { 
                 position, 
                 rotation, 
                 dimensions, 
-                color 
+                color,
+                impact_force
             }
         }
 
         #[allow(dead_code)]
-        pub fn new_circle(position: Vec2, radius: f32, color: Color) -> StaticBody {
+        pub fn new_circle(position: Vec2, radius: f32, color: Color, impact_force: f32) -> StaticBody {
             StaticBody::Circle { 
                 position, 
                 radius, 
-                color 
+                color,
+                impact_force,
             }
         }
         
@@ -80,7 +84,7 @@ pub mod static_obj {
     
                 // Rectangle size
                 let arc_length = (radius + thickness.max(0.0)) * angle_step; // length along arc
-                let rect_width = arc_length * 1.05; // slight overlap (5% more)
+                let rect_width = arc_length * 1.01; // slight overlap (1% more)
                 let rect_size = vec2(rect_width, thickness);
     
                 // Rotation (tangent to the curve)
@@ -93,6 +97,7 @@ pub mod static_obj {
                     rect_size,
                     rotation,
                     color,
+                    0.0
                 ));}
             }
             out
@@ -114,12 +119,12 @@ pub mod static_obj {
         #[allow(dead_code)]
         pub fn draw(&self) {
             match self {
-                StaticBody::Rectangle { position, rotation, dimensions: size, color  } => {
+                StaticBody::Rectangle { position, rotation, dimensions: size, color, ..  } => {
                      draw_rectangle_ex(position.x, position.y, size.x, size.y, DrawRectangleParams { 
                         offset: vec2(0.5, 0.5), rotation: *rotation, color: *color
                     });
                 },
-                StaticBody::Circle { position, radius, color } => {
+                StaticBody::Circle { position, radius, color, .. } => {
                     draw_circle(position.x, position.y, *radius, *color);
                 },
                 StaticBody::Curve { render, .. } => {
@@ -146,7 +151,7 @@ pub mod static_obj {
         //Returns (Collision point, collision normal, penetration)
         pub fn collision_check(&self, obj: &PhysicsBody) -> Option<(Vec2, Vec2, f32)> {
             match self {
-                StaticBody::Circle { position, radius, color: _ } => {
+                StaticBody::Circle { position, radius, .. } => {
                     let displacement: Vec2 = obj.position - *position;
                     let distance_squared: f32 = displacement.length_squared();
 
@@ -240,7 +245,7 @@ pub mod static_obj {
                 StaticBody::Flipper { origin, offset, dimensions, current_rotation, color, .. } => {
                     let position = *origin + rotate_vec2(*offset, *current_rotation);
 
-                    StaticBody::new_rectangle(position, *dimensions, *current_rotation, *color).collision_check(obj)
+                    StaticBody::new_rectangle(position, *dimensions, *current_rotation, *color, 0.0).collision_check(obj)
                 },
                 StaticBody::Empty => None
             }

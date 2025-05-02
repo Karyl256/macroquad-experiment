@@ -11,6 +11,20 @@ pub mod helper {
             v.x * sin_theta + v.y * cos_theta,
         )
     }
+    pub fn format_number(number: f32) -> String {
+        let number_str = format!("{:.0}", number); // Convert to string with no decimals
+        let mut result = String::new();
+    
+        // Iterate over the string in reverse
+        for (i, c) in number_str.chars().rev().enumerate() {
+            if i > 0 && i % 3 == 0 {
+                result.push(' '); // Add a space after every third character
+            }
+            result.push(c);
+        }
+    
+        result.chars().rev().collect() // Reverse the result to correct the order
+    }
 }
 
 #[macro_export]
@@ -23,7 +37,10 @@ macro_rules! flipper {
 #[macro_export]
 macro_rules! rect {
     ($self:ident, $pos:expr, $size:expr, $angle:expr, $color:expr) => {
-        $self.colliders.push(StaticBody::new_rectangle($pos, $size, $angle, $color));
+        $self.colliders.push(StaticBody::new_rectangle($pos, $size, $angle, $color, 0.0));
+    };
+    ($self:ident, $pos:expr, $size:expr, $angle:expr, $color:expr, $impact:expr) => {
+        $self.colliders.push(StaticBody::new_rectangle($pos, $size, $angle, $color, $impact));
     };
 }
 
@@ -37,6 +54,9 @@ macro_rules! curve {
 #[macro_export]
 macro_rules! circle {
     ($self:ident, $center:expr, $radius:expr, $color:expr) => {
-        $self.colliders.push(StaticBody::new_circle($center, $radius, $color));
+        $self.colliders.push(StaticBody::new_circle($center, $radius, $color, 0.0));
+    };
+    ($self:ident, $center:expr, $radius:expr, $color:expr, $impact:expr) => {
+        $self.colliders.push(StaticBody::new_circle($center, $radius, $color, $impact));
     };
 }

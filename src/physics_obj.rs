@@ -59,7 +59,9 @@ pub mod physics_obj {
                         } => {
                             let r = c.0 - *origin;
                             Vec2::new(-r.y, r.x) * *angular_velocity
-                        }
+                        },
+                        StaticBody::Circle { impact_force, .. } => c.1 * *impact_force,
+                        StaticBody::Rectangle { impact_force, .. } => c.1 * *impact_force,
                         _ => Vec2::ZERO,
                     };
                     

@@ -21,7 +21,7 @@ pub mod game_engine {
 
     use macroquad::prelude::*;
 
-    use crate::{circle, curve, flipper, physics_obj::physics_obj::PhysicsBody, rect, static_obj::static_obj::StaticBody};
+    use crate::{circle, curve, flipper, physics_obj::physics_obj::PhysicsBody, rect, static_obj::static_obj::StaticBody, helper::helper::format_number};
     use super::*;
 
     #[derive(Default)]
@@ -34,12 +34,14 @@ pub mod game_engine {
 
         launcher_accumulator: f32,
 
+        font: Option<Font>,
         debug_draw_points: Vec<(Vec2, i32)>,
     }
 
     impl GameWorld {
-        pub fn create() -> GameWorld {
+        pub async fn create() -> GameWorld {
             let mut created_game = GameWorld::default();
+            created_game.font = Some(load_ttf_font("sans-medium.ttf").await.expect("No file"));
 
             created_game.ball = PhysicsBody::new(
                 vec2(465.0, 600.0),
@@ -110,6 +112,16 @@ pub mod game_engine {
             let launcher_percentage = self.launcher_accumulator / LAUNCHER_MAX_TIME;
             draw_rectangle(460.0, 625.0, 10.0, (-1.0 + launcher_percentage * 0.9) * 15.0, YELLOW);
 
+            //Render score and lives
+            let score_text = format_number((get_time() as f32) * 10000.0);
+            draw_text_ex(&score_text, 512.5, 50.0, TextParams {
+                    font: self.font.as_ref(),
+                    font_size: 32,
+                    color: WHITE,
+                    ..Default::default()
+                },
+            );
+
             //Draw debug points
             for point in &mut self.debug_draw_points {
                 draw_circle(point.0.x, point.0.y, 5.0, YELLOW);
@@ -149,12 +161,12 @@ pub mod game_engine {
             flipper!(self, vec2(320.0, 630.0), vec2(-24.0, 0.0), vec2(60.0, 10.0), -0.16 * PI,  0.5, PURPLE);
 
             // Floor
-            rect!(self, vec2(116.0,  595.1),  vec2(144.8, 10.0),  0.16 * PI, GRAY);
-            rect!(self, vec2(375.7, 599.91), vec2(127.2, 10.0), -0.16 * PI, GRAY);
+            rect!(self, vec2(116.0, 595.1),  vec2(144.8, 10.0),  0.16 * PI, GRAY);
+            rect!(self, vec2(384.0, 595.1), vec2(144.8, 10.0), -0.16 * PI, GRAY);
 
             // Lower floor
-            rect!(self, vec2(87.69, 619.2), vec2(77.3, 10.0), 0.16 * PI, GRAY);
-            rect!(self, vec2(375.7, 639.91), vec2(127.2, 10.0), -0.16 * PI, GRAY);
+            rect!(self, vec2(100.0, 627.0), vec2(110.0, 10.0), 0.16 * PI, GRAY);
+            rect!(self, vec2(400.7, 627.0), vec2(110.0, 10.0), -0.16 * PI, GRAY);
 
             // Walls
             rect!(self, vec2(490.0, 350.0), vec2(20.0, 700.0), 0.0, GRAY);
@@ -168,34 +180,60 @@ pub mod game_engine {
             rect!(self, vec2(465.0, 620.0), vec2(30.0, 20.0), 0.0, GRAY);
 
             //Opposite inside wall
-            rect!(self, vec2(55.0, 510.0), vec2(10.0, 110.0), 0.0, GRAY);
+            rect!(self, vec2(55.0, 530.0), vec2(10.0, 70.0), 0.0, GRAY);
+            rect!(self, vec2(55.0, 630.0), vec2(10.0, 50.0), 0.0, GRAY);
+            rect!(self, vec2(35.0, 650.0), vec2(30.0, 10.0), 0.0, LIGHTGRAY, 200.0);
+            rect!(self, vec2(50.0, 450.0), vec2(100.0, 10.0), PI * -0.25, GRAY);
 
             // Enter curves
-            curve!(self, vec2(250.0, 250.0), 230.0, 20.0, -2.12, 0.0, 60, GRAY);
-            curve!(self, vec2(250.0, 250.0), 200.0, -10.0, -1.1, 0.0, 0, GRAY);
-            curve!(self, vec2(75.0, 75.0), 50.0, 10.0, PI * 0.65, PI * -0.11, 100, PINK);
+            curve!(self, vec2(250.0, 250.0), 230.0, 20.0, -2.11, 0.0, 30, GRAY);
+            curve!(self, vec2(250.0, 250.0), 200.0, -10.0, -1.15, 0.0, 0, GRAY);
+            curve!(self, vec2(75.0, 75.0), 50.0, 50.0, PI * 0.665, PI * -0.13, 20, GRAY);
 
             // Bumper
-            circle!(self, vec2(75.0, 75.0), 12.5, PINK);
+            circle!(self, vec2(75.0, 75.0), 15.0, WHITE, 100.0);
 
             // Outside continue
-            curve!(self, vec2(250.0, 250.0), 230.0, 10.0, PI * 0.75, -2.55, 30, GRAY);
+            curve!(self, vec2(250.0, 250.0), 230.0, 110.0, PI * 0.75, -2.55, 20, GRAY);
 
             // Tunnel
-            curve!(self, vec2(250.0, 250.0), 190.0, 10.0, -1.15, 0.5, 40, GRAY);
-            curve!(self, vec2(250.0, 250.0), 165.0, -10.0, -1.15, 0.3, 40, GRAY);
+            curve!(self, vec2(250.0, 250.0), 190.0, 10.0, -1.15, 0.5, 20, GRAY);
+            curve!(self, vec2(250.0, 250.0), 165.0, -10.0, -1.15, 0.3, 20, GRAY);
             curve!(self, vec2(250.0, 250.0), 155.0, 10.0, -1.15, 0.3, 0, GREEN);
 
             // Top 2 splitters
             rect!(self, vec2(230.0, 130.0), vec2(10.0, 30.0), 0.0, GRAY);
             rect!(self, vec2(270.0, 130.0), vec2(10.0, 30.0), 0.0, GRAY);
 
+            //Middle angled
+            rect!(self, vec2(245.0, 310.0), vec2(40.0, 10.0), PI * 0.16, YELLOW, 50.0);
+            rect!(self, vec2(250.0, 300.0), vec2(50.0, 20.0), PI * 0.16, GRAY);
+
+            //Middle bumpers
+            circle!(self, vec2(260.0, 280.0), 15.0, WHITE, 100.0);
+            circle!(self, vec2(310.0, 220.0), 15.0, WHITE, 100.0);
+            circle!(self, vec2(210.0, 230.0), 15.0, WHITE, 100.0);
+
             //Left top abomination
             curve!(self, vec2(250.0, 250.0), 200.0, -5.0, -2.24, -1.96, 20, GRAY);
             rect!(self, vec2(130.0, 110.0), vec2(10.0, 30.0), 0.0, GRAY);
             rect!(self, vec2(170.0, 85.0), vec2(10.0, 30.0), 0.0, GRAY);
-            rect!(self, vec2(150.0, 112.0), vec2(54.0, 10.0), PI * -0.175, GRAY);
-            rect!(self, vec2(150.0, 95.0), vec2(45.0, 25.0), PI * -0.175, GRAY);
+            rect!(self, vec2(150.0, 112.0), vec2(54.0, 10.0), PI * -0.175, YELLOW, 50.0);
+            rect!(self, vec2(150.0, 94.0), vec2(45.0, 21.0), PI * -0.175, GRAY);
+
+            //Bottom left bumper
+            rect!(self, vec2(130.0, 535.0), vec2(25.0, 40.0), 0.0, DARKBLUE, 0.0);
+            rect!(self, vec2(124.0, 505.0), vec2(13.0, 25.0), 0.0, DARKBLUE, 0.0);
+            rect!(self, vec2(136.0, 545.0), vec2(37.0, 20.0), 0.0, DARKBLUE, 0.0);
+            rect!(self, vec2(140.0, 520.0), vec2(8.0, 70.0), PI * -0.16, WHITE, 150.0);
+            rect!(self, vec2(139.0, 522.0), vec2(5.0, 75.0), PI * -0.16, DARKBLUE, 0.0);
+
+            //Bottom right bumper
+            rect!(self, vec2(370.0, 535.0), vec2(25.0, 40.0), 0.0, DARKBLUE, 0.0);
+            rect!(self, vec2(376.0, 505.0), vec2(13.0, 25.0), 0.0, DARKBLUE, 0.0);
+            rect!(self, vec2(364.0, 545.0), vec2(37.0, 20.0), 0.0, DARKBLUE, 0.0);
+            rect!(self, vec2(360.0, 520.0), vec2(8.0, 70.0), PI * 0.16, WHITE, 150.0);
+            rect!(self, vec2(361.0, 522.0), vec2(5.0, 75.0), PI * 0.16, DARKBLUE, 0.0);
             
         }
     }
