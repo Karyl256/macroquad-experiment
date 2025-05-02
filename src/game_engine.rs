@@ -10,8 +10,10 @@ pub const PHYSICS_TARGET_FRAMETIME: f32 = 1.0 / PHYSICS_TARGET_FPS * PHYSICS_SPE
 //Cap to how many physics frames can happen in a game frame
 pub const MAX_PHYSICS_UPDATES_PER_FRAME: u32 = 10;
 //Flipper angular velocity
-pub const FLIPPER_SPEED: f32 = 10.0;
-
+pub const FLIPPER_SPEED: f32 = 7.5;
+//Launcher: maximum charge time length, maximum force
+pub const LAUNCHER_MAX_TIME: f32 = 2.0;
+pub const LAUNCHER_MAX_STRENGTH: f32 = 820.0;
 
 pub mod game_engine {
     use std::f32::consts::PI;
@@ -29,6 +31,8 @@ pub mod game_engine {
         colliders: Vec<StaticBody>,
         physics_accumulated_time: f32,
 
+        launcher_accumulator: f32,
+
         debug_draw_points: Vec<(Vec2, i32)>,
     }
 
@@ -38,7 +42,7 @@ pub mod game_engine {
 
             created_game.ball = PhysicsBody::new(
                 vec2(465.0, 600.0),
-                vec2(0.0, -800.0),
+                vec2(0.0, 0.0),
                 10.0,
             );
 
@@ -67,12 +71,24 @@ pub mod game_engine {
             self.update_flipper(dt, 0, KeyCode::Left);
             self.update_flipper(dt, 1, KeyCode::Right);
 
-            if is_key_pressed(KeyCode::Space) {
+            if is_key_pressed(KeyCode::R) {
                 self.ball = PhysicsBody::new(
                     vec2(465.0, 600.0),
-                    vec2(0.0, -800.0),
+                    vec2(0.0, 0.0),
                     self.ball.radius
                 );
+            }
+
+            if is_key_down(KeyCode::Space) {
+                //Add dt to launcher accumulator, while giving it a limit
+                self.launcher_accumulator = (self.launcher_accumulator + dt).clamp(0.0, LAUNCHER_MAX_TIME);
+            }
+            if is_key_released(KeyCode::Space) 
+            {
+                if (460.0 < self.ball.position.x && self.ball.position.x < 470.0) && (595.0 < self.ball.position.y && self.ball.position.y < 605.0) {
+                    self.ball.velocity.y = -(self.launcher_accumulator/LAUNCHER_MAX_TIME) * LAUNCHER_MAX_STRENGTH;
+                }
+                self.launcher_accumulator = 0.0;
             }
             
 
@@ -80,12 +96,18 @@ pub mod game_engine {
         }
 
         pub fn draw(&mut self) {
-            draw_circle(self.ball.position.x, self.ball.position.y, self.ball.radius, RED);
+            draw_circle(self.ball.position.x, self.ball.position.y, self.ball.radius, Color::from_rgba(190, 190, 200, 255));
 
+            //Render map
             for obj in &self.colliders {
                 obj.draw();
             }
 
+            //Render launcher
+            let launcher_percentage = self.launcher_accumulator / LAUNCHER_MAX_TIME;
+            draw_rectangle(460.0, 625.0, 10.0, (-1.0 + launcher_percentage * 0.9) * 15.0, YELLOW);
+
+            //Draw debug points
             for point in &mut self.debug_draw_points {
                 draw_circle(point.0.x, point.0.y, 5.0, YELLOW);
                 point.1 -= 1;
@@ -121,19 +143,26 @@ pub mod game_engine {
         pub fn initialize_world(&mut self) {
             //FLIPPERS
             self.colliders.push(StaticBody::new_flipper(
-                vec2(180.0, 660.0), vec2(30.0, 0.0), vec2(70.0, 10.0), 0.16 * PI, -0.5, PURPLE
+                vec2(180.0, 630.0), vec2(30.0, 0.0), vec2(70.0, 10.0), 0.16 * PI, -0.5, PURPLE
             ));
             self.colliders.push(StaticBody::new_flipper(
-                vec2(320.0, 660.0), vec2(-30.0, 0.0), vec2(70.0, 10.0), -0.16 * PI, 0.5, PURPLE
+                vec2(320.0, 630.0), vec2(-30.0, 0.0), vec2(70.0, 10.0), -0.16 * PI, 0.5, PURPLE
             ));
 
 
             //Floor
             self.colliders.push(StaticBody::new_rectangle(
-                vec2(92.5, 612.0), vec2(201.0, 10.0), 0.16 * PI, GRAY
+                vec2(92.5, 582.0), vec2(201.0, 10.0), 0.16 * PI, GRAY
             ));
             self.colliders.push(StaticBody::new_rectangle(
-                vec2(375.7, 629.91), vec2(127.2, 10.0), -0.16 * PI, GRAY
+                vec2(375.7, 599.91), vec2(127.2, 10.0), -0.16 * PI, GRAY
+            ));
+            //Lower floor
+            self.colliders.push(StaticBody::new_rectangle(
+                vec2(92.5, 622.0), vec2(201.0, 10.0), 0.16 * PI, GRAY
+            ));
+            self.colliders.push(StaticBody::new_rectangle(
+                vec2(375.7, 639.91), vec2(127.2, 10.0), -0.16 * PI, GRAY
             ));
             //Walls
             self.colliders.push(StaticBody::new_rectangle(
@@ -148,19 +177,21 @@ pub mod game_engine {
             ));
             //Inside wall
             self.colliders.push(StaticBody::new_rectangle(
-                vec2(439.0, 450.0),  vec2(20.0, 420.0), 0.0, GREEN
+                vec2(445.0, 435.0),  vec2(10.0, 390.0), 0.0, GRAY
             ));
+            self.colliders.push(StaticBody::new_rectangle(
+                vec2(465.0, 620.0), vec2(30.0, 20.0), 0.0, GRAY));
 
             //Enter curves: outside, inside
             self.colliders.push(StaticBody::new_curve(
                 vec2(250.0, 250.0), 230.0, 20.0, -2.12, 0.0, 30, BLUE
             ));
             self.colliders.push(StaticBody::new_curve(
-                vec2(250.0, 250.0), 199.0, -20.0, -0.7, 0.0, 30, BLUE
+                vec2(250.0, 250.0), 200.0, -10.0, -1.1, 0.0, 0, BLUE
             ));
 
             self.colliders.push(StaticBody::new_curve(
-                vec2(75.0, 75.0), 50.0, 10.0, PI * 0.65, PI * -0.12, 100, PINK
+                vec2(75.0, 75.0), 50.0, 10.0, PI * 0.65, PI * -0.11, 100, PINK
             ));
 
             self.colliders.push(StaticBody::new_circle(vec2(75.0, 75.0), 12.5, PINK));
@@ -168,6 +199,24 @@ pub mod game_engine {
             //Outside continue
             self.colliders.push(StaticBody::new_curve(
                 vec2(250.0, 250.0), 230.0, 20.0, PI * 0.75, -2.55, 30, BLUE
+            ));
+            //Tunnel, right
+            self.colliders.push(StaticBody::new_curve(
+                vec2(250.0, 250.0), 190.0, 10.0, -1.1, 0.5, 40, GRAY
+            ));
+            self.colliders.push(StaticBody::new_curve(
+                vec2(250.0, 250.0), 165.0, -10.0, -1.1, 0.3, 40, GRAY
+            ));
+            self.colliders.push(StaticBody::new_curve(
+                vec2(250.0, 250.0), 155.0, 10.0, -1.1, 0.3, 0, GREEN
+            ));
+
+            //Top 2 splitters
+            self.colliders.push(StaticBody::new_rectangle(
+                vec2(230.0, 130.0), vec2(10.0, 30.0), 0.0, GREEN
+            ));
+            self.colliders.push(StaticBody::new_rectangle(
+                vec2(270.0, 130.0), vec2(10.0, 30.0), 0.0, GREEN
             ));
             
         }

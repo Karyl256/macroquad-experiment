@@ -29,11 +29,9 @@ fn window_config() -> Conf {
 async fn main() {
     let mut game = game_engine::game_engine::GameWorld::create();
 
-    let mut timer = 0.0;
     loop {
-        timer += get_frame_time();
         clear_background(Color::new(0.20, 0.3, 0.5, 1.0));
-        if timer > 2.0 { game.physics(); }
+        game.physics();
         game.draw();
         next_frame().await;
     }
