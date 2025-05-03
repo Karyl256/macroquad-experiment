@@ -11,7 +11,8 @@ pub mod helper {
             v.x * sin_theta + v.y * cos_theta,
         )
     }
-    pub fn format_number(number: f32) -> String {
+    
+    pub fn format_number(number: i32) -> String {
         let number_str = format!("{:.0}", number); // Convert to string with no decimals
         let mut result = String::new();
     

@@ -40,6 +40,14 @@ pub mod static_obj {
             angular_velocity: f32,
             color: Color,
         },
+        Spinner {
+            position: Vec2,
+            dimensions: Vec2,
+            rotation: f32,
+            acc_velocity: f32,
+            top_down_rotation: f32,
+            color: Color,
+        },
         #[default]
         Empty 
     }
@@ -143,20 +151,25 @@ pub mod static_obj {
                         offset: vec2(0.5, 0.5), rotation: *current_rotation, color: *color
                     });
                 }
+                StaticBody::Spinner { position, dimensions, rotation, top_down_rotation, color, .. } => {
+                    draw_rectangle_ex(position.x, position.y, dimensions.x, dimensions.y * (f32::cos(*top_down_rotation).abs() * 0.9 + 0.1), DrawRectangleParams { 
+                        offset: vec2(0.5, 0.5), rotation: *rotation, color: *color
+                    });
+                }
                 StaticBody::Empty => ()
             }
         }
 
         #[allow(dead_code)]
         //Returns (Collision point, collision normal, penetration)
-        pub fn collision_check(&self, obj: &PhysicsBody) -> Option<(Vec2, Vec2, f32)> {
+        pub fn collision_check(&mut self, obj: &PhysicsBody) -> Option<(Vec2, Vec2, f32)> {
             match self {
                 StaticBody::Circle { position, radius, .. } => {
                     let displacement: Vec2 = obj.position - *position;
                     let distance_squared: f32 = displacement.length_squared();
 
                     //If too far away return nothing
-                    if distance_squared > (radius + obj.radius) * (radius + obj.radius) {
+                    if distance_squared > (*radius + obj.radius) * (*radius + obj.radius) {
                         return None
                     }
                     //If inside centre just don't do anything right now. Better than undefined behaviour
@@ -167,11 +180,11 @@ pub mod static_obj {
                     Some((
                        (normal * *radius) + *position,
                        normal,
-                       radius + obj.radius - distance
+                       *radius + obj.radius - distance
                     ))
                 },
                 StaticBody::Rectangle { position, rotation, dimensions, .. } => {
-                    let local_object_position = rotate_vec2(obj.position - *position, -rotation);
+                    let local_object_position = rotate_vec2(obj.position - *position, -*rotation);
 
                     // Check for a potential collision
                     if let Some(mut out) = StaticBody::rectangle_collision_local(*dimensions, local_object_position, obj.radius) {
@@ -188,7 +201,7 @@ pub mod static_obj {
                     let distance_to_center: f32 = displacement.length();
 
                     //Exit early if too far or too close
-                    if distance_to_center > radius + obj.radius || distance_to_center < radius - obj.radius {
+                    if distance_to_center > *radius + obj.radius || distance_to_center < *radius - obj.radius {
                         return None;
                     }
 
@@ -241,6 +254,14 @@ pub mod static_obj {
                             }
                         }
                     }
+                },
+                StaticBody::Spinner { position, dimensions, rotation, acc_velocity, .. } => {
+                    let collision = StaticBody::new_rectangle(*position, *dimensions, *rotation, GRAY, 0.0).collision_check(obj);
+                    if let Some(_) = collision {
+                        *acc_velocity = rotate_vec2(obj.velocity, -*rotation).y / dimensions.y;
+                    }
+
+                    None
                 },
                 StaticBody::Flipper { origin, offset, dimensions, current_rotation, color, .. } => {
                     let position = *origin + rotate_vec2(*offset, *current_rotation);

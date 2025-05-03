@@ -36,14 +36,14 @@ pub mod physics_obj {
             (self.velocity.length_squared() / 2.0) + (bottom_y - self.position.y) * GRAVITY.y
         }
 
-        pub fn update_physics(&mut self, dt: f32, colliders: &Vec<StaticBody>, debug_draw_points: &mut Vec<(Vec2, i32)>) {
+        pub fn update_physics(&mut self, dt: f32, colliders: &mut Vec<StaticBody>, score: &mut f32, debug_draw_points: &mut Vec<(Vec2, i32)>) {
             #[allow(unused_mut)]
             let mut acceleration = GRAVITY;
 
             self.velocity += acceleration * dt;
             self.position += self.velocity * dt - 0.5 * acceleration * dt * dt;
 
-            for obj in colliders {
+            for obj in colliders.iter_mut() {
                 // contact (collision point, collision normal, penetration_depth)
                 let contact = obj.collision_check(self);
                 if let Some(c) = contact {
@@ -60,8 +60,8 @@ pub mod physics_obj {
                             let r = c.0 - *origin;
                             Vec2::new(-r.y, r.x) * *angular_velocity
                         },
-                        StaticBody::Circle { impact_force, .. } => c.1 * *impact_force,
-                        StaticBody::Rectangle { impact_force, .. } => c.1 * *impact_force,
+                        StaticBody::Circle { impact_force, .. } => {*score += impact_force.floor() * 10.0; c.1 * *impact_force},
+                        StaticBody::Rectangle { impact_force, .. } => {*score += impact_force.floor() * 10.0; c.1 * *impact_force},
                         _ => Vec2::ZERO,
                     };
                     

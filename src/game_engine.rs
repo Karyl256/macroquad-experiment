@@ -28,7 +28,7 @@ pub mod game_engine {
     pub struct GameWorld {
         ball: PhysicsBody,
 
-        //colliders[0, 1] are (at lesat should be) flippers
+        //colliders[0, 1] are (at least should be) flippers
         colliders: Vec<StaticBody>,
         physics_accumulated_time: f32,
 
@@ -36,18 +36,21 @@ pub mod game_engine {
 
         font: Option<Font>,
         debug_draw_points: Vec<(Vec2, i32)>,
+        score: f32,
+        lives: u32,
     }
 
     impl GameWorld {
         pub async fn create() -> GameWorld {
             let mut created_game = GameWorld::default();
+
+            //Load font
             created_game.font = Some(load_ttf_font("sans-medium.ttf").await.expect("No file"));
 
-            created_game.ball = PhysicsBody::new(
-                vec2(465.0, 600.0),
-                vec2(0.0, 0.0),
-                10.0,
-            );
+            //Create ball
+            created_game.ball = PhysicsBody::new(vec2(465.0, 600.0), vec2(0.0, 0.0),10.0);
+            created_game.score = 0.0;
+            created_game.lives = 3;
 
             created_game.initialize_world();
 
@@ -74,14 +77,34 @@ pub mod game_engine {
             self.update_flipper(dt, 0, KeyCode::Left);
             self.update_flipper(dt, 1, KeyCode::Right);
 
+            //Find all spinners
+            for s in self.colliders.iter_mut().filter(|e| matches!(e, StaticBody::Spinner { .. })) {
+                if let StaticBody::Spinner { acc_velocity, top_down_rotation, .. } = s {
+                    *top_down_rotation += *acc_velocity * dt;
+                    *acc_velocity = acc_velocity.signum() * f32::max(acc_velocity.abs() - dt * 5.0, 0.0);
+                    self.score += acc_velocity.abs() * dt * 100.0;
+                }
+            }
+
             //If R pressed or ball is out of bounds, restart
-            //TODO: ADD HEALTH SYSTEM
             if is_key_pressed(KeyCode::R) || self.ball.position.y > (screen_height() + 300.0) {
-                self.ball = PhysicsBody::new(
-                    vec2(465.0, 600.0),
-                    vec2(0.0, 0.0),
-                    self.ball.radius
-                );
+                if self.lives > 0 {
+                    self.lives -= 1;
+
+                    self.restart_ball();
+                }
+            }
+            if is_key_pressed(KeyCode::E) {
+                //Reset all spinners velociy
+                for s in self.colliders.iter_mut().filter(|e| matches!(e, StaticBody::Spinner { .. })) {
+                    if let StaticBody::Spinner { acc_velocity, .. } = s {
+                        *acc_velocity = 0.0;
+                    }
+                }
+
+                self.lives = 3;
+                self.score = 0.0;
+                self.restart_ball();
             }
 
             if is_key_down(KeyCode::Space) {
@@ -96,8 +119,7 @@ pub mod game_engine {
                 self.launcher_accumulator = 0.0;
             }
             
-
-            self.ball.update_physics(dt, &self.colliders, &mut self.debug_draw_points);
+            self.ball.update_physics(dt, &mut self.colliders, &mut self.score, &mut self.debug_draw_points);
         }
 
         pub fn draw(&mut self) {
@@ -113,21 +135,98 @@ pub mod game_engine {
             draw_rectangle(460.0, 625.0, 10.0, (-1.0 + launcher_percentage * 0.9) * 15.0, YELLOW);
 
             //Render score and lives
-            let score_text = format_number((get_time() as f32) * 10000.0);
-            draw_text_ex(&score_text, 512.5, 50.0, TextParams {
-                    font: self.font.as_ref(),
-                    font_size: 32,
-                    color: WHITE,
-                    ..Default::default()
-                },
-            );
+            self.draw_number(format_number((self.score / 100.0) as i32 * 100), vec2(628.0, 25.0), 12.0, 25.0, 2.0);
+            self.draw_number(self.lives.to_string(), vec2(624.0, 100.0), 15.0, 30.0, 3.0);
 
             //Draw debug points
             for point in &mut self.debug_draw_points {
-                draw_circle(point.0.x, point.0.y, 5.0, YELLOW);
+                //draw_circle(point.0.x, point.0.y, 5.0, YELLOW);
                 point.1 -= 1;
             }
+
             self.debug_draw_points.retain(|p| p.1 > 0);
+        }
+
+        pub fn draw_number(&mut self, num: String, corner: Vec2, width: f32, height: f32, thickness: f32) {
+            let mut current_corner = corner;
+        
+            for c in num.chars().rev() {
+                match c {
+                    '0' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE); // top
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE); // bottom
+                        draw_rectangle(current_corner.x, current_corner.y, thickness, height, WHITE); // left
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE); // right
+                    }
+                    '1' => {
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE);
+                    }
+                    '2' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE); // top
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE); // middle
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE); // bottom
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height / 2.0, WHITE); // top right
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0, thickness, height / 2.0, WHITE); // bottom left
+                    }
+                    '3' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE);
+                    }
+                    '4' => {
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y, thickness, height / 2.0 + thickness / 2.0, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE);
+                    }
+                    '5' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y, thickness, height / 2.0, WHITE);
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y + height / 2.0, thickness, height / 2.0, WHITE);
+                    }
+                    '6' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y, thickness, height, WHITE);
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y + height / 2.0, thickness, height / 2.0, WHITE);
+                    }
+                    '7' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE);
+                    }
+                    '8' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y, thickness, height, WHITE);
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE);
+                    }
+                    '9' => {
+                        draw_rectangle(current_corner.x, current_corner.y, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height / 2.0 - thickness / 2.0, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y + height - thickness, width, thickness, WHITE);
+                        draw_rectangle(current_corner.x + width - thickness, current_corner.y, thickness, height, WHITE);
+                        draw_rectangle(current_corner.x, current_corner.y, thickness, height / 2.0, WHITE);
+                    }
+                    ' ' => {
+                        current_corner += vec2((width + thickness + 3.0) / 1.5, 0.0);
+                    }
+                    _ => {}
+                }
+        
+                current_corner -= vec2(width + thickness + 3.0, 0.0); // spacing between digits
+            }
+        }
+        
+        pub fn restart_ball(&mut self) {
+            self.ball = PhysicsBody::new(
+                vec2(465.0, 600.0),
+                vec2(0.0, 0.0),
+                self.ball.radius
+            );
         }
 
         pub fn update_flipper(&mut self, dt: f32, index: usize, key: KeyCode) {
@@ -165,8 +264,8 @@ pub mod game_engine {
             rect!(self, vec2(384.0, 595.1), vec2(144.8, 10.0), -0.16 * PI, GRAY);
 
             // Lower floor
-            rect!(self, vec2(100.0, 627.0), vec2(110.0, 10.0), 0.16 * PI, GRAY);
-            rect!(self, vec2(400.7, 627.0), vec2(110.0, 10.0), -0.16 * PI, GRAY);
+            rect!(self, vec2(100.0, 627.0), vec2(109.0, 10.0), 0.16 * PI, GRAY);
+            rect!(self, vec2(400.0, 627.0), vec2(109.0, 10.0), -0.16 * PI, GRAY);
 
             // Walls
             rect!(self, vec2(490.0, 350.0), vec2(20.0, 700.0), 0.0, GRAY);
@@ -188,17 +287,17 @@ pub mod game_engine {
             // Enter curves
             curve!(self, vec2(250.0, 250.0), 230.0, 20.0, -2.11, 0.0, 30, GRAY);
             curve!(self, vec2(250.0, 250.0), 200.0, -10.0, -1.15, 0.0, 0, GRAY);
-            curve!(self, vec2(75.0, 75.0), 50.0, 50.0, PI * 0.665, PI * -0.13, 20, GRAY);
+            curve!(self, vec2(75.0, 75.0), 50.0, 50.0, PI * 0.665, PI * -0.13, 30, GRAY);
 
             // Bumper
             circle!(self, vec2(75.0, 75.0), 15.0, WHITE, 100.0);
 
             // Outside continue
-            curve!(self, vec2(250.0, 250.0), 230.0, 110.0, PI * 0.75, -2.55, 20, GRAY);
+            curve!(self, vec2(250.0, 250.0), 230.0, 110.0, PI * 0.75, -2.55, 30, GRAY);
 
             // Tunnel
-            curve!(self, vec2(250.0, 250.0), 190.0, 10.0, -1.15, 0.5, 20, GRAY);
-            curve!(self, vec2(250.0, 250.0), 165.0, -10.0, -1.15, 0.3, 20, GRAY);
+            curve!(self, vec2(250.0, 250.0), 190.0, 10.0, -1.15, 0.5, 30, GRAY);
+            curve!(self, vec2(250.0, 250.0), 165.0, -10.0, -1.15, 0.3, 30, GRAY);
             curve!(self, vec2(250.0, 250.0), 155.0, 10.0, -1.15, 0.3, 0, GREEN);
 
             // Top 2 splitters
@@ -235,6 +334,10 @@ pub mod game_engine {
             rect!(self, vec2(360.0, 520.0), vec2(8.0, 70.0), PI * 0.16, WHITE, 150.0);
             rect!(self, vec2(361.0, 522.0), vec2(5.0, 75.0), PI * 0.16, DARKBLUE, 0.0);
             
+            //Spinner in tunnel
+            self.colliders.push(StaticBody::Spinner { 
+                position: vec2(425.0, 280.0), dimensions: vec2(20.0, 20.0), rotation: 0.2, acc_velocity: 0.0, top_down_rotation: 0.0, color: LIGHTGRAY 
+            });
         }
     }
 
